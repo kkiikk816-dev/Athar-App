@@ -1,0 +1,22 @@
+[
+  {
+    "id": "WZ001",
+    "weekday": "saturday",
+    "title": "زيارة يوم السبت",
+    "is_pdf": true,
+    "file_id": "BQACAgIAAxkBAAErBP9qN8hrzKMRFYWZot9KQOb6kCpGiAAC_5sAAhgewEnFF-yTzMtroDwE"
+  },
+  {
+    "id": "WZ002",
+    "weekday": "sunday",
+    "title": "زيارة يوم الاحد",
+    "is_pdf": true,
+    "file_id": "BQACAgIAAxkBAAErBQNqN8hrYeVhdWdyaTMll2MBJOSZEwACBpwAAhgewEnZeIyK0YJOjTwE"
+  },
+  {
+    "id": "WD001",
+    "weekday": "saturday",
+    "title": "دعاء يوم السبت",
+    "text": "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَآلِ مُحَمَّدٍ بِسْمِ اللهِ كَلِمَةِ الْمُعْتَصِمِينَ..."
+  }
+]
