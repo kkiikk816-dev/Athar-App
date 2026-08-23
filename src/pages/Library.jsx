@@ -1,17 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
+import { fetchLibraryContent } from '../repositories/contentRepository';
 import ReaderView from '../components/ReaderView';
 import PDFViewer from '../components/PDFViewer';
 import { Book, FileText, ChevronLeft } from 'lucide-react';
 
 export default function Library() {
   const { weeklyData } = useAppContext();
+  const [libraryItems, setLibraryItems] = useState(weeklyData || []);
   const [activeItem, setActiveItem] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadLibrary = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const remoteItems = await fetchLibraryContent();
+        if (mounted && remoteItems.length > 0) setLibraryItems(remoteItems);
+      } catch (error) {
+        console.warn('Library sync failed; keeping local weekly data.', error);
+      }
+    };
+    void loadLibrary();
+    return () => { mounted = false; };
+  }, []);
 
   if (activeItem) {
     return (
       <div className="pb-20 pt-4 px-4 h-screen max-w-lg mx-auto bg-gray-50 flex flex-col">
-        <button 
+        <button
           onClick={() => setActiveItem(null)}
           className="mb-4 text-blue-600 font-medium self-start hover:text-blue-800 transition-colors flex items-center gap-1"
         >
@@ -20,17 +37,13 @@ export default function Library() {
         </button>
         <div className="flex-1 overflow-hidden">
           {activeItem.is_pdf ? (
-            <PDFViewer 
-              title={activeItem.title} 
-              fileId={activeItem.file_id} 
-              pdfUrl={activeItem.pdf_url} 
-            />
+            <PDFViewer title={activeItem.title} pdfUrl={activeItem.pdf_url} />
           ) : (
-            <ReaderView 
-              title={activeItem.title} 
-              text={activeItem.text} 
+            <ReaderView
+              title={activeItem.title}
+              text={activeItem.text}
               itemId={activeItem.id}
-              type="library"
+              type={activeItem.type || 'library'}
             />
           )}
         </div>
@@ -46,9 +59,9 @@ export default function Library() {
       </header>
 
       <div className="space-y-3">
-        {weeklyData?.map(item => (
+        {libraryItems.map((item) => (
           <button
-            key={item.id}
+            key={`${item.type || 'weekly'}-${item.id}`}
             onClick={() => setActiveItem(item)}
             className="w-full text-right bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors flex items-center justify-between group"
           >
@@ -57,8 +70,8 @@ export default function Library() {
                 {item.is_pdf ? <FileText size={20} /> : <Book size={20} />}
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{item.title}</h3>
-                <p className="text-xs text-gray-500">{item.is_pdf ? 'ملف PDF' : 'نص مقروء'}</p>
+                <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{item.title || 'بدون عنوان'}</h3>
+                <p className="text-xs text-gray-500">{item.is_pdf ? (item.pdf_url ? 'ملف PDF' : 'ملف PDF غير متاح للفتح') : 'نص مقروء'}</p>
               </div>
             </div>
             <ChevronLeft size={20} className="text-gray-300 group-hover:text-blue-400 transition-colors" />

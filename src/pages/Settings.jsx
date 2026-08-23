@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Bell, Link2, Info } from 'lucide-react';
+import { User, Bell, Info } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState(true);
-
-  // Generate a mock deep link for Telegram
-  // In a real app, this would be a secure token linking the anonymous session
-  const telegramBotLink = `https://t.me/AtharAppBot?start=link_${user?.id || 'guest'}`;
 
   return (
     <div className="pb-20 pt-6 px-4 max-w-lg mx-auto min-h-screen bg-gray-50">
@@ -32,20 +28,7 @@ export default function Settings() {
             </div>
           </div>
           
-          <div className="pt-4 border-t border-gray-100">
-            <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-              اربط حسابك بتيليغرام لحفظ تقدمك واستقبال الإشعارات اليومية (حديث اليوم، حكمة اليوم).
-            </p>
-            <a 
-              href={telegramBotLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#0088cc] hover:bg-[#0077b3] text-white rounded-lg font-medium transition-colors"
-            >
-              <Link2 size={18} />
-              <span>ربط بحساب تيليغرام</span>
-            </a>
-          </div>
+          {/* قسم ربط تيليغرام تمت إزالته */}
         </section>
 
         {/* Notifications Section */}
