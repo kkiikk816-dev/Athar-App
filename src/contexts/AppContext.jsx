@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import taqibatData from '../data/taqibat.json';
 import hijriEventsData from '../data/hijri_events.json';
 import weeklyData from '../data/weekly.json';
@@ -23,12 +24,14 @@ const AppContext = createContext({
   taqibatData,
   hijriEventsData,
   weeklyData,
-  cloudSyncing: false,
+  isAppReady: false,
+  isOnlineMode: false,
 });
 
 export const AppProvider = ({ children }) => {
-  const [todayContent, setTodayContent] = useState(getLocalTodayContent);
-  const [cloudSyncing, setCloudSyncing] = useState(false);
+  const [todayContent, setTodayContent] = useState(null);
+  const [isAppReady, setIsAppReady] = useState(false);
+  const [isOnlineMode, setIsOnlineMode] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -36,55 +39,70 @@ export const AppProvider = ({ children }) => {
     const weekday = getCurrentWeekday();
     const cacheKey = `today_${hijriDate}_${weekday}`;
 
-    const loadCachedAndSync = async () => {
-      try {
-        const cached = await getCachedContent(cacheKey);
-        if (mounted && cached) {
-          setTodayContent((local) => ({
-            events: cached.events?.length ? cached.events : local.events,
-            weekly: cached.weekly?.length ? cached.weekly : local.weekly,
-            taqibat: cached.taqibat?.length ? cached.taqibat : local.taqibat,
-          }));
-        }
-      } catch (e) {
-        console.warn('Cache read failed', e);
-      }
+    const initializeApp = async () => {
+      let remoteData = null;
+      let isConnected = false;
 
-      setCloudSyncing(true);
+      // 1. Try to fetch from Supabase (Online Check)
       try {
         const remote = await fetchTodayContent({ hijriDate, weekday });
-        if (!mounted) return;
-
-        setTodayContent((prev) => {
-          const updated = {
-            events: remote.events?.length ? remote.events : prev.events,
-            weekly: remote.weekly?.length ? remote.weekly : prev.weekly,
-            taqibat: remote.taqibat?.length ? remote.taqibat : prev.taqibat,
-          };
-          // Save to cache asynchronously without blocking render
-          setCachedContent(cacheKey, updated).catch(e => console.warn('Cache write failed', e));
-          return updated;
-        });
+        if (remote && (remote.events?.length > 0 || remote.weekly?.length > 0 || remote.taqibat?.length > 0)) {
+          remoteData = remote;
+          isConnected = true;
+        }
       } catch (error) {
-        console.warn('Background content sync failed; keeping local/cached data.', error);
-      } finally {
-        if (mounted) setCloudSyncing(false);
+        console.warn('Supabase fetch failed, falling back to offline mode.', error);
       }
+
+      if (!mounted) return;
+
+      if (isConnected && remoteData) {
+        // Online Mode: Use remote data and save to cache
+        setTodayContent(remoteData);
+        setIsOnlineMode(true);
+        setCachedContent(cacheKey, remoteData).catch(e => console.warn('Cache write failed', e));
+      } else {
+        // Offline Mode: Try Cache first, then JSON
+        setIsOnlineMode(false);
+        try {
+          const cached = await getCachedContent(cacheKey);
+          if (cached && (cached.events?.length > 0 || cached.weekly?.length > 0 || cached.taqibat?.length > 0)) {
+            setTodayContent(cached);
+          } else {
+            setTodayContent(getLocalTodayContent());
+          }
+        } catch (e) {
+          console.warn('Cache read failed, using JSON fallback', e);
+          setTodayContent(getLocalTodayContent());
+        }
+      }
+      
+      setIsAppReady(true);
     };
 
-    void loadCachedAndSync();
+    void initializeApp();
     return () => {
       mounted = false;
     };
   }, []);
 
   const value = useMemo(() => ({
-    todayContent,
+    todayContent: todayContent || getLocalTodayContent(),
     taqibatData,
     hijriEventsData,
     weeklyData,
-    cloudSyncing,
-  }), [todayContent, cloudSyncing]);
+    isAppReady,
+    isOnlineMode,
+  }), [todayContent, isAppReady, isOnlineMode]);
+
+  if (!isAppReady) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-blue-600" dir="rtl">
+        <Loader2 size={40} className="animate-spin mb-4" />
+        <p className="font-medium">جاري إعداد البرنامج اليومي...</p>
+      </div>
+    );
+  }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

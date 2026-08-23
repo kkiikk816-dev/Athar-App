@@ -7,8 +7,6 @@ export default function Settings() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [dbStatus, setDbStatus] = useState('checking'); // checking, connected, error, unconfigured
-  const [isClearing, setIsClearing] = useState(false);
-
   const checkConnection = async () => {
     if (!isSupabaseConfigured || !supabase) {
       setDbStatus('unconfigured');
@@ -29,34 +27,7 @@ export default function Settings() {
     checkConnection();
   }, []);
 
-  const handleClearCache = async () => {
-    setIsClearing(true);
-    try {
-      // 1. Clear Service Worker caches (PWA cache)
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-      
-      // 2. Clear ONLY content cache DB, DO NOT touch offline-db (favorites) or Supabase session
-      const dbs = await window.indexedDB.databases();
-      for (const db of dbs) {
-        if (db.name === 'content-cache') {
-          window.indexedDB.deleteDatabase(db.name);
-        }
-      }
-      
-      // DO NOT use localStorage.clear() because it deletes Supabase auth tokens
-      // DO NOT delete offline-db because it contains pending favorites
-      
-      setTimeout(() => {
-        window.location.reload(true);
-      }, 1000);
-    } catch (e) {
-      console.error('Failed to clear cache', e);
-      setIsClearing(false);
-    }
-  };
+
 
   return (
     <div className="pb-20 pt-6 px-4 max-w-lg mx-auto min-h-screen bg-gray-50">
@@ -133,16 +104,7 @@ export default function Settings() {
             </button>
           </div>
           
-          <div className="pt-4 border-t border-gray-50">
-            <button 
-              onClick={handleClearCache}
-              disabled={isClearing}
-              className="w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-            >
-              {isClearing ? <RefreshCw size={16} className="animate-spin" /> : 'مسح التخزين المؤقت (Cache)'}
-            </button>
-            <p className="text-[10px] text-center text-gray-400 mt-2">سيؤدي هذا إلى مسح البيانات المحفوظة وإعادة تحميل التطبيق لجلب أحدث البيانات.</p>
-          </div>
+
         </section>
 
         {/* About Section */}

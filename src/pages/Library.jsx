@@ -7,8 +7,8 @@ import PDFViewer from '../components/PDFViewer';
 import { Book, FileText, ChevronLeft, MessageCircle, Lightbulb, Search, Loader2 } from 'lucide-react';
 
 export default function Library() {
-  const { weeklyData } = useAppContext();
-  const [libraryItems, setLibraryItems] = useState(weeklyData || []);
+  const { weeklyData, isOnlineMode } = useAppContext();
+  const [libraryItems, setLibraryItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const [activeTab, setActiveTab] = useState('library'); // 'library', 'hadiths', 'wisdoms'
   
@@ -18,6 +18,7 @@ export default function Library() {
   const [hadithsPage, setHadithsPage] = useState(0);
   const [wisdomsPage, setWisdomsPage] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLibraryLoading, setIsInitialLibraryLoading] = useState(true);
   const [hasMoreHadiths, setHasMoreHadiths] = useState(true);
   const [hasMoreWisdoms, setHasMoreWisdoms] = useState(true);
   
@@ -28,31 +29,45 @@ export default function Library() {
     const cacheKey = 'library_content_full';
 
     const loadLibrary = async () => {
-      try {
-        const cached = await getCachedContent(cacheKey);
-        if (mounted && cached && cached.length > 0) setLibraryItems(cached);
-      } catch (e) {
-        console.warn('Library cache read failed', e);
+      let remoteItems = [];
+      let isConnected = false;
+
+      if (isOnlineMode) {
+        try {
+          remoteItems = await fetchLibraryContent();
+          if (remoteItems.length > 0) isConnected = true;
+        } catch (error) {
+          console.warn('Library sync failed.', error);
+        }
       }
 
-      try {
-        const remoteItems = await fetchLibraryContent();
-        if (!mounted) return;
-        
-        if (remoteItems.length > 0) {
-          setLibraryItems(remoteItems);
-          await setCachedContent(cacheKey, remoteItems);
+      if (!mounted) return;
+
+      if (isConnected) {
+        setLibraryItems(remoteItems);
+        setCachedContent(cacheKey, remoteItems).catch(e => console.warn(e));
+      } else {
+        try {
+          const cached = await getCachedContent(cacheKey);
+          if (cached && cached.length > 0) {
+            setLibraryItems(cached);
+          } else {
+            setLibraryItems(weeklyData || []);
+          }
+        } catch (e) {
+          console.warn('Library cache read failed', e);
+          setLibraryItems(weeklyData || []);
         }
-      } catch (error) {
-        console.warn('Library sync failed; keeping local/cached data.', error);
       }
+      setIsInitialLibraryLoading(false);
     };
+
     void loadLibrary();
     return () => { mounted = false; };
-  }, []);
+  }, [isOnlineMode, weeklyData]);
 
   const loadMoreHadiths = async () => {
-    if (isLoadingMore || !hasMoreHadiths) return;
+    if (isLoadingMore || !hasMoreHadiths || !isOnlineMode) return;
     setIsLoadingMore(true);
     try {
       const newItems = await fetchHadiths(hadithsPage, 20);
@@ -71,7 +86,7 @@ export default function Library() {
   };
 
   const loadMoreWisdoms = async () => {
-    if (isLoadingMore || !hasMoreWisdoms) return;
+    if (isLoadingMore || !hasMoreWisdoms || !isOnlineMode) return;
     setIsLoadingMore(true);
     try {
       const newItems = await fetchWisdoms(wisdomsPage, 20);
@@ -136,6 +151,15 @@ export default function Library() {
   };
 
   const activeItems = getActiveItems();
+
+  if (isInitialLibraryLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-blue-600">
+        <Loader2 size={30} className="animate-spin mb-4" />
+        <p className="font-medium text-sm">جاري تهيئة المكتبة...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20 pt-6 px-4 max-w-lg mx-auto min-h-screen bg-gray-50">
@@ -223,7 +247,7 @@ export default function Library() {
         )}
 
         {/* Load More Button for Pagination */}
-        {activeTab === 'hadiths' && hasMoreHadiths && !searchQuery && (
+        {activeTab === 'hadiths' && hasMoreHadiths && !searchQuery && isOnlineMode && (
           <button 
             onClick={loadMoreHadiths}
             disabled={isLoadingMore}
@@ -232,7 +256,7 @@ export default function Library() {
             {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : 'عرض المزيد من الأحاديث'}
           </button>
         )}
-        {activeTab === 'wisdoms' && hasMoreWisdoms && !searchQuery && (
+        {activeTab === 'wisdoms' && hasMoreWisdoms && !searchQuery && isOnlineMode && (
           <button 
             onClick={loadMoreWisdoms}
             disabled={isLoadingMore}
@@ -240,6 +264,11 @@ export default function Library() {
           >
             {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : 'عرض المزيد من الحِكم'}
           </button>
+        )}
+        {(!isOnlineMode && (activeTab === 'hadiths' || activeTab === 'wisdoms')) && (
+          <div className="text-center py-6 text-amber-600 text-sm bg-amber-50 rounded-xl">
+            هذا القسم يتطلب اتصالاً بالإنترنت.
+          </div>
         )}
       </div>
     </div>
