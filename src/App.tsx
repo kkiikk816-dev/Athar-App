@@ -18,7 +18,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/Athar-App">
           <div className="font-sans text-gray-900 bg-gray-50 min-h-screen" dir="rtl">
             <Routes>
               <Route path="/" element={<Home />} />
