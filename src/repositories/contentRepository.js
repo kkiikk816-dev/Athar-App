@@ -91,16 +91,26 @@ export const fetchHadiths = async (page = 0, limit = 20) => {
   if (!isSupabaseConfigured || !supabase) return [];
   const from = page * limit;
   const to = from + limit - 1;
-  const data = await read(supabase.from('hadiths').select('*').range(from, to));
-  return data.map(item => normalizeLibraryItem({ ...item, title: item.title || `حديث #${item.id}` }, 'hadith'));
+  try {
+    const data = await read(supabase.from('hadiths').select('*').range(from, to));
+    return data.map(item => normalizeLibraryItem({ ...item, title: `حديث ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'hadith'));
+  } catch (e) {
+    console.error('fetchHadiths error:', e);
+    return [];
+  }
 };
 
 export const fetchWisdoms = async (page = 0, limit = 20) => {
   if (!isSupabaseConfigured || !supabase) return [];
   const from = page * limit;
   const to = from + limit - 1;
-  const data = await read(supabase.from('wisdoms').select('*').range(from, to));
-  return data.map(item => normalizeLibraryItem({ ...item, title: item.title || `حكمة #${item.id}` }, 'wisdom'));
+  try {
+    const data = await read(supabase.from('wisdoms').select('*').range(from, to));
+    return data.map(item => normalizeLibraryItem({ ...item, title: `حكمة ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'wisdom'));
+  } catch (e) {
+    console.error('fetchWisdoms error:', e);
+    return [];
+  }
 };
 
 export const ensureUserRecord = async (user) => {

@@ -1,10 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Bell, Info } from 'lucide-react';
+import { User, Bell, Info, RefreshCw, Server, CheckCircle, XCircle } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 
 export default function Settings() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState(true);
+  const [dbStatus, setDbStatus] = useState('checking'); // checking, connected, error, unconfigured
+  const [isClearing, setIsClearing] = useState(false);
+
+  const checkConnection = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setDbStatus('unconfigured');
+      return;
+    }
+    setDbStatus('checking');
+    try {
+      const { error } = await supabase.from('hijri_events').select('id').limit(1);
+      if (error) throw error;
+      setDbStatus('connected');
+    } catch (err) {
+      console.error('Connection check failed:', err);
+      setDbStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  const handleClearCache = async () => {
+    setIsClearing(true);
+    try {
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      const dbs = await window.indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name) window.indexedDB.deleteDatabase(db.name);
+      }
+      
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 1000);
+    } catch (e) {
+      console.error('Failed to clear cache', e);
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className="pb-20 pt-6 px-4 max-w-lg mx-auto min-h-screen bg-gray-50">
@@ -52,6 +100,44 @@ export default function Settings() {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
             </label>
+          </div>
+        </section>
+
+        {/* Database Connection Section */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+                <Server size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">حالة الخادم</h3>
+                <div className="flex items-center gap-1 text-xs mt-1">
+                  {dbStatus === 'checking' && <span className="text-gray-500 flex items-center gap-1"><RefreshCw size={12} className="animate-spin" /> جاري التحقق...</span>}
+                  {dbStatus === 'connected' && <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={12} /> متصل بنجاح</span>}
+                  {dbStatus === 'error' && <span className="text-red-500 flex items-center gap-1"><XCircle size={12} /> خطأ في الاتصال</span>}
+                  {dbStatus === 'unconfigured' && <span className="text-amber-500 flex items-center gap-1"><Info size={12} /> غير مكوّن (يعمل محلياً)</span>}
+                </div>
+              </div>
+            </div>
+            <button 
+              onClick={checkConnection}
+              disabled={dbStatus === 'checking'}
+              className="p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-full hover:bg-blue-50"
+            >
+              <RefreshCw size={18} className={dbStatus === 'checking' ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          
+          <div className="pt-4 border-t border-gray-50">
+            <button 
+              onClick={handleClearCache}
+              disabled={isClearing}
+              className="w-full py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+            >
+              {isClearing ? <RefreshCw size={16} className="animate-spin" /> : 'مسح التخزين المؤقت (Cache)'}
+            </button>
+            <p className="text-[10px] text-center text-gray-400 mt-2">سيؤدي هذا إلى مسح البيانات المحفوظة وإعادة تحميل التطبيق لجلب أحدث البيانات.</p>
           </div>
         </section>
 
