@@ -5,6 +5,8 @@ import weeklyData from '../data/weekly.json';
 import { getCurrentHijriDateStr, getCurrentWeekday } from '../utils/dateSync';
 import { fetchTodayContent } from '../repositories/contentRepository';
 
+import { getCachedContent, setCachedContent } from '../services/contentCache';
+
 const getLocalTodayContent = () => {
   const hijriDate = getCurrentHijriDateStr();
   const weekday = getCurrentWeekday();
@@ -31,28 +33,43 @@ export const AppProvider = ({ children }) => {
     let mounted = true;
     const hijriDate = getCurrentHijriDateStr();
     const weekday = getCurrentWeekday();
+    const cacheKey = `today_${hijriDate}_${weekday}`;
 
-    const syncTodayContent = async () => {
+    const loadCachedAndSync = async () => {
+      try {
+        const cached = await getCachedContent(cacheKey);
+        if (mounted && cached) {
+          setTodayContent((local) => ({
+            events: cached.events?.length ? cached.events : local.events,
+            weekly: cached.weekly?.length ? cached.weekly : local.weekly,
+            taqibat: cached.taqibat?.length ? cached.taqibat : local.taqibat,
+          }));
+        }
+      } catch (e) {
+        console.warn('Cache read failed', e);
+      }
+
       setCloudSyncing(true);
       try {
         const remote = await fetchTodayContent({ hijriDate, weekday });
         if (!mounted) return;
 
-        setTodayContent((local) => ({
-          events: remote.events?.length ? remote.events : local.events,
-          weekly: remote.weekly?.length ? remote.weekly : local.weekly,
-          taqibat: remote.taqibat?.length ? remote.taqibat : local.taqibat,
-        }));
+        const updated = {
+          events: remote.events?.length ? remote.events : todayContent.events,
+          weekly: remote.weekly?.length ? remote.weekly : todayContent.weekly,
+          taqibat: remote.taqibat?.length ? remote.taqibat : todayContent.taqibat,
+        };
+
+        setTodayContent(updated);
+        await setCachedContent(cacheKey, updated);
       } catch (error) {
-        // Local JSON remains the source of truth when the request fails.
-        console.warn('Background content sync failed; keeping local data.', error);
+        console.warn('Background content sync failed; keeping local/cached data.', error);
       } finally {
         if (mounted) setCloudSyncing(false);
       }
     };
 
-    // This starts after the first render; it can never block local content.
-    void syncTodayContent();
+    void loadCachedAndSync();
     return () => {
       mounted = false;
     };

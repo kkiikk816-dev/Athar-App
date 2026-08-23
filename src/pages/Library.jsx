@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { fetchLibraryContent } from '../repositories/contentRepository';
+import { getCachedContent, setCachedContent } from '../services/contentCache';
 import ReaderView from '../components/ReaderView';
 import PDFViewer from '../components/PDFViewer';
 import { Book, FileText, ChevronLeft } from 'lucide-react';
@@ -12,13 +13,27 @@ export default function Library() {
 
   useEffect(() => {
     let mounted = true;
+    const cacheKey = 'library_content_full';
+
     const loadLibrary = async () => {
+      try {
+        const cached = await getCachedContent(cacheKey);
+        if (mounted && cached && cached.length > 0) setLibraryItems(cached);
+      } catch (e) {
+        console.warn('Library cache read failed', e);
+      }
+
       if (!navigator.onLine) return;
       try {
         const remoteItems = await fetchLibraryContent();
-        if (mounted && remoteItems.length > 0) setLibraryItems(remoteItems);
+        if (!mounted) return;
+        
+        if (remoteItems.length > 0) {
+          setLibraryItems(remoteItems);
+          await setCachedContent(cacheKey, remoteItems);
+        }
       } catch (error) {
-        console.warn('Library sync failed; keeping local weekly data.', error);
+        console.warn('Library sync failed; keeping local/cached data.', error);
       }
     };
     void loadLibrary();
