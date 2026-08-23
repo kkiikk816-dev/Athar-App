@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const ensureAnonymousSession = async () => {
-      if (!mounted || !supabase || !isSupabaseConfigured || !navigator.onLine) return;
+      if (!mounted || !supabase || !isSupabaseConfigured) return;
       if (startingAnonymousSession.current) return;
 
       startingAnonymousSession.current = true;

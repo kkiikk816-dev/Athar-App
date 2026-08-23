@@ -35,7 +35,6 @@ export default function Library() {
         console.warn('Library cache read failed', e);
       }
 
-      if (!navigator.onLine) return;
       try {
         const remoteItems = await fetchLibraryContent();
         if (!mounted) return;

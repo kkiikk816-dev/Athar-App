@@ -32,18 +32,22 @@ export default function Settings() {
   const handleClearCache = async () => {
     setIsClearing(true);
     try {
+      // 1. Clear Service Worker caches (PWA cache)
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(name => caches.delete(name)));
       }
       
+      // 2. Clear ONLY content cache DB, DO NOT touch offline-db (favorites) or Supabase session
       const dbs = await window.indexedDB.databases();
       for (const db of dbs) {
-        if (db.name) window.indexedDB.deleteDatabase(db.name);
+        if (db.name === 'content-cache') {
+          window.indexedDB.deleteDatabase(db.name);
+        }
       }
       
-      localStorage.clear();
-      sessionStorage.clear();
+      // DO NOT use localStorage.clear() because it deletes Supabase auth tokens
+      // DO NOT delete offline-db because it contains pending favorites
       
       setTimeout(() => {
         window.location.reload(true);

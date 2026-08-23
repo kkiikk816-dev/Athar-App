@@ -55,14 +55,16 @@ export const AppProvider = ({ children }) => {
         const remote = await fetchTodayContent({ hijriDate, weekday });
         if (!mounted) return;
 
-        const updated = {
-          events: remote.events?.length ? remote.events : todayContent.events,
-          weekly: remote.weekly?.length ? remote.weekly : todayContent.weekly,
-          taqibat: remote.taqibat?.length ? remote.taqibat : todayContent.taqibat,
-        };
-
-        setTodayContent(updated);
-        await setCachedContent(cacheKey, updated);
+        setTodayContent((prev) => {
+          const updated = {
+            events: remote.events?.length ? remote.events : prev.events,
+            weekly: remote.weekly?.length ? remote.weekly : prev.weekly,
+            taqibat: remote.taqibat?.length ? remote.taqibat : prev.taqibat,
+          };
+          // Save to cache asynchronously without blocking render
+          setCachedContent(cacheKey, updated).catch(e => console.warn('Cache write failed', e));
+          return updated;
+        });
       } catch (error) {
         console.warn('Background content sync failed; keeping local/cached data.', error);
       } finally {
