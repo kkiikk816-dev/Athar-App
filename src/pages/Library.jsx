@@ -53,7 +53,7 @@ export default function Library() {
   }, []);
 
   const loadMoreHadiths = async () => {
-    if (isLoadingMore || !hasMoreHadiths || !navigator.onLine) return;
+    if (isLoadingMore || !hasMoreHadiths) return;
     setIsLoadingMore(true);
     try {
       const newItems = await fetchHadiths(hadithsPage, 20);
@@ -72,7 +72,7 @@ export default function Library() {
   };
 
   const loadMoreWisdoms = async () => {
-    if (isLoadingMore || !hasMoreWisdoms || !navigator.onLine) return;
+    if (isLoadingMore || !hasMoreWisdoms) return;
     setIsLoadingMore(true);
     try {
       const newItems = await fetchWisdoms(wisdomsPage, 20);
@@ -182,8 +182,15 @@ export default function Library() {
       </div>
 
       <div className="space-y-3">
-        {activeItems.length === 0 && !isLoadingMore ? (
-          <div className="text-center py-10 text-gray-500">لا توجد نتائج مطابقة</div>
+        {activeItems.length === 0 ? (
+          isLoadingMore ? (
+            <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+              <Loader2 size={24} className="animate-spin text-blue-500 mb-2" />
+              <p className="text-sm">جاري التحميل...</p>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-gray-500">لا توجد نتائج مطابقة</div>
+          )
         ) : (
           activeItems.map((item) => (
             <button
