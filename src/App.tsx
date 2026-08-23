@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import BottomNav from './components/BottomNav';
@@ -18,7 +18,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <BrowserRouter basename="/Athar-App">
+        <HashRouter>
           <div className="font-sans text-gray-900 bg-gray-50 min-h-screen" dir="rtl">
             <Routes>
               <Route path="/" element={<Home />} />
@@ -29,7 +29,7 @@ export default function App() {
             </Routes>
             <BottomNav />
           </div>
-        </BrowserRouter>
+        </HashRouter>
       </AppProvider>
     </AuthProvider>
   );
