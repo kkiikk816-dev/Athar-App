@@ -12,20 +12,44 @@ const read = async (query) => {
  * Reads only the tables needed for the Home and Prayers screens.
  * A failed table must not prevent local fallback data from rendering.
  */
+const sortFeatured = (items) => {
+  return [...items].sort((a, b) => {
+    if (a.is_featured && !b.is_featured) return -1;
+    if (!a.is_featured && b.is_featured) return 1;
+    const scoreA = a.send_score || 0;
+    const scoreB = b.send_score || 0;
+    return scoreB - scoreA;
+  });
+};
+
 export const fetchTodayContent = async ({ hijriDate, weekday }) => {
   if (!isSupabaseConfigured || !supabase) return {};
 
   const results = await Promise.allSettled([
     read(supabase.from('hijri_events').select('*').eq('hijri_date', hijriDate)),
     read(supabase.from('weekly_content').select('*').eq('weekday', weekday)),
+    read(supabase.from('weekly_duas').select('*').eq('weekday', weekday)),
+    read(supabase.from('weekly_ziyarat').select('*').eq('weekday', weekday)),
     read(supabase.from('taqibat').select('*')),
   ]);
 
-  const [eventsResult, weeklyResult, taqibatResult] = results;
+  const [eventsResult, weeklyResult, duasResult, ziyaratResult, taqibatResult] = results;
+  
+  const weekly = [];
+  if (weeklyResult.status === 'fulfilled') {
+    weekly.push(...weeklyResult.value.map((item) => normalizeLibraryItem(item, 'weekly')));
+  }
+  if (duasResult.status === 'fulfilled') {
+    weekly.push(...duasResult.value.map((item) => normalizeLibraryItem(item, 'dua')));
+  }
+  if (ziyaratResult.status === 'fulfilled') {
+    weekly.push(...ziyaratResult.value.map((item) => normalizeLibraryItem(item, 'ziyara')));
+  }
+
   return {
     events: eventsResult.status === 'fulfilled' ? eventsResult.value : null,
-    weekly: weeklyResult.status === 'fulfilled' ? weeklyResult.value : null,
-    taqibat: taqibatResult.status === 'fulfilled' ? taqibatResult.value : null,
+    weekly: weekly.length > 0 ? sortFeatured(weekly) : null,
+    taqibat: taqibatResult.status === 'fulfilled' ? sortFeatured(taqibatResult.value) : null,
   };
 };
 

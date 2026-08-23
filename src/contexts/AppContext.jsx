@@ -10,10 +10,11 @@ import { getCachedContent, setCachedContent } from '../services/contentCache';
 const getLocalTodayContent = () => {
   const hijriDate = getCurrentHijriDateStr();
   const weekday = getCurrentWeekday();
+  const localWeekly = weeklyData.filter((item) => item.weekday === weekday).map(item => ({...item, type: 'weekly'}));
   return {
     events: hijriEventsData.filter((event) => event.hijri_date === hijriDate),
-    weekly: weeklyData.filter((item) => item.weekday === weekday),
-    taqibat: taqibatData,
+    weekly: localWeekly,
+    taqibat: taqibatData.map(item => ({...item, type: 'taqibat'})),
   };
 };
 
