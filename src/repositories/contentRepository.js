@@ -87,6 +87,22 @@ export const fetchLibraryContent = async () => {
   return rows;
 };
 
+export const fetchHadiths = async (page = 0, limit = 20) => {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const from = page * limit;
+  const to = from + limit - 1;
+  const data = await read(supabase.from('hadiths').select('*').range(from, to));
+  return data.map(item => normalizeLibraryItem({ ...item, title: item.title || `حديث #${item.id}` }, 'hadith'));
+};
+
+export const fetchWisdoms = async (page = 0, limit = 20) => {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const from = page * limit;
+  const to = from + limit - 1;
+  const data = await read(supabase.from('wisdoms').select('*').range(from, to));
+  return data.map(item => normalizeLibraryItem({ ...item, title: item.title || `حكمة #${item.id}` }, 'wisdom'));
+};
+
 export const ensureUserRecord = async (user) => {
   if (!user?.id || !isSupabaseConfigured || !supabase) return false;
 
