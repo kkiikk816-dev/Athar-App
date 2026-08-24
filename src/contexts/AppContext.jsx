@@ -45,10 +45,12 @@ export const AppProvider = ({ children }) => {
 
       // 1. Try to fetch from Supabase (Online Check)
       try {
-        const remote = await fetchTodayContent({ hijriDate, weekday });
-        if (remote && (remote.events?.length > 0 || remote.weekly?.length > 0 || remote.taqibat?.length > 0)) {
-          remoteData = remote;
+        const res = await fetchTodayContent({ hijriDate, weekday });
+        if (!res.error && res.data && (res.data.events?.length > 0 || res.data.weekly?.length > 0 || res.data.taqibat?.length > 0)) {
+          remoteData = res.data;
           isConnected = true;
+        } else if (res.error) {
+          console.warn('Supabase fetch error:', res.error);
         }
       } catch (error) {
         console.warn('Supabase fetch failed, falling back to offline mode.', error);

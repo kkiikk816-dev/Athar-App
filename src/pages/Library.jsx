@@ -34,8 +34,11 @@ export default function Library() {
 
       if (isOnlineMode) {
         try {
-          remoteItems = await fetchLibraryContent();
-          if (remoteItems.length > 0) isConnected = true;
+          const res = await fetchLibraryContent();
+          if (!res.error && res.data.length > 0) {
+            remoteItems = res.data;
+            isConnected = true;
+          }
         } catch (error) {
           console.warn('Library sync failed.', error);
         }
@@ -70,11 +73,12 @@ export default function Library() {
     if (isLoadingMore || !hasMoreHadiths || !isOnlineMode) return;
     setIsLoadingMore(true);
     try {
-      const newItems = await fetchHadiths(hadithsPage, 20);
-      if (newItems.length < 20) setHasMoreHadiths(false);
+      const res = await fetchHadiths(hadithsPage, 20);
+      if (res.error) throw new Error(res.error);
+      if (res.data.length < 20) setHasMoreHadiths(false);
       setHadiths(prev => {
         const existingIds = new Set(prev.map(i => i.id));
-        const filtered = newItems.filter(i => !existingIds.has(i.id));
+        const filtered = res.data.filter(i => !existingIds.has(i.id));
         return [...prev, ...filtered];
       });
       setHadithsPage(prev => prev + 1);
@@ -89,11 +93,12 @@ export default function Library() {
     if (isLoadingMore || !hasMoreWisdoms || !isOnlineMode) return;
     setIsLoadingMore(true);
     try {
-      const newItems = await fetchWisdoms(wisdomsPage, 20);
-      if (newItems.length < 20) setHasMoreWisdoms(false);
+      const res = await fetchWisdoms(wisdomsPage, 20);
+      if (res.error) throw new Error(res.error);
+      if (res.data.length < 20) setHasMoreWisdoms(false);
       setWisdoms(prev => {
         const existingIds = new Set(prev.map(i => i.id));
-        const filtered = newItems.filter(i => !existingIds.has(i.id));
+        const filtered = res.data.filter(i => !existingIds.has(i.id));
         return [...prev, ...filtered];
       });
       setWisdomsPage(prev => prev + 1);

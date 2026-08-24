@@ -1,11 +1,15 @@
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 
 const read = async (query) => {
-  if (!isSupabaseConfigured || !supabase) return [];
+  if (!isSupabaseConfigured || !supabase) return { data: [], error: 'Supabase is not configured' };
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  try {
+    const { data, error } = await query;
+    if (error) return { data: [], error: error.message };
+    return { data: data || [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
 };
 
 /**
@@ -23,9 +27,9 @@ const sortFeatured = (items) => {
 };
 
 export const fetchTodayContent = async ({ hijriDate, weekday }) => {
-  if (!isSupabaseConfigured || !supabase) return {};
+  if (!isSupabaseConfigured || !supabase) return { data: null, error: 'Supabase is not configured' };
 
-  const results = await Promise.allSettled([
+  const [eventsRes, weeklyRes, duasRes, ziyaratRes, taqibatRes] = await Promise.all([
     read(supabase.from('hijri_events').select('*').eq('hijri_date', hijriDate)),
     read(supabase.from('weekly_content').select('*').eq('weekday', weekday)),
     read(supabase.from('weekly_duas').select('*').eq('weekday', weekday)),
@@ -33,23 +37,20 @@ export const fetchTodayContent = async ({ hijriDate, weekday }) => {
     read(supabase.from('taqibat').select('*')),
   ]);
 
-  const [eventsResult, weeklyResult, duasResult, ziyaratResult, taqibatResult] = results;
+  const hasError = eventsRes.error || weeklyRes.error || taqibatRes.error;
   
   const weekly = [];
-  if (weeklyResult.status === 'fulfilled') {
-    weekly.push(...weeklyResult.value.map((item) => normalizeLibraryItem(item, 'weekly')));
-  }
-  if (duasResult.status === 'fulfilled') {
-    weekly.push(...duasResult.value.map((item) => normalizeLibraryItem(item, 'dua')));
-  }
-  if (ziyaratResult.status === 'fulfilled') {
-    weekly.push(...ziyaratResult.value.map((item) => normalizeLibraryItem(item, 'ziyara')));
-  }
+  if (!weeklyRes.error) weekly.push(...weeklyRes.data.map((item) => normalizeLibraryItem(item, 'weekly')));
+  if (!duasRes.error) weekly.push(...duasRes.data.map((item) => normalizeLibraryItem(item, 'dua')));
+  if (!ziyaratRes.error) weekly.push(...ziyaratRes.data.map((item) => normalizeLibraryItem(item, 'ziyara')));
 
   return {
-    events: eventsResult.status === 'fulfilled' ? eventsResult.value : null,
-    weekly: weekly.length > 0 ? sortFeatured(weekly) : null,
-    taqibat: taqibatResult.status === 'fulfilled' ? sortFeatured(taqibatResult.value) : null,
+    data: {
+      events: !eventsRes.error ? eventsRes.data : null,
+      weekly: weekly.length > 0 ? sortFeatured(weekly) : null,
+      taqibat: !taqibatRes.error ? sortFeatured(taqibatRes.data) : null,
+    },
+    error: hasError ? 'Some queries failed' : null
   };
 };
 
@@ -65,9 +66,9 @@ const normalizeLibraryItem = (item, type) => ({
  * The result is normalized to the shape consumed by Library.jsx and ReaderView.jsx.
  */
 export const fetchLibraryContent = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
+  if (!isSupabaseConfigured || !supabase) return { data: [], error: 'Supabase is not configured' };
 
-  const results = await Promise.allSettled([
+  const [weeklyRes, duasRes, ziyaratRes, munajatRes, pdfsRes] = await Promise.all([
     read(supabase.from('weekly_content').select('*')),
     read(supabase.from('weekly_duas').select('*')),
     read(supabase.from('weekly_ziyarat').select('*')),
@@ -75,42 +76,40 @@ export const fetchLibraryContent = async () => {
     read(supabase.from('pdf_library').select('*')),
   ]);
 
-  const [weekly, duas, ziyaret, munajat, pdfs] = results;
   const rows = [];
+  
+  if (!weeklyRes.error) rows.push(...weeklyRes.data.map((item) => normalizeLibraryItem(item, 'weekly')));
+  if (!duasRes.error) rows.push(...duasRes.data.map((item) => normalizeLibraryItem(item, 'dua')));
+  if (!ziyaratRes.error) rows.push(...ziyaratRes.data.map((item) => normalizeLibraryItem(item, 'ziyara')));
+  if (!munajatRes.error) rows.push(...munajatRes.data.map((item) => normalizeLibraryItem(item, 'munajat')));
+  if (!pdfsRes.error) rows.push(...pdfsRes.data.map((item) => normalizeLibraryItem(item, 'pdf')));
 
-  if (weekly.status === 'fulfilled') rows.push(...weekly.value.map((item) => normalizeLibraryItem(item, 'weekly')));
-  if (duas.status === 'fulfilled') rows.push(...duas.value.map((item) => normalizeLibraryItem(item, 'dua')));
-  if (ziyaret.status === 'fulfilled') rows.push(...ziyaret.value.map((item) => normalizeLibraryItem(item, 'ziyara')));
-  if (munajat.status === 'fulfilled') rows.push(...munajat.value.map((item) => normalizeLibraryItem(item, 'munajat')));
-  if (pdfs.status === 'fulfilled') rows.push(...pdfs.value.map((item) => normalizeLibraryItem(item, 'pdf')));
-
-  return rows;
+  const hasError = weeklyRes.error || duasRes.error || ziyaratRes.error || munajatRes.error || pdfsRes.error;
+  return { data: rows, error: hasError ? 'Some library queries failed' : null };
 };
 
 export const fetchHadiths = async (page = 0, limit = 20) => {
-  if (!isSupabaseConfigured || !supabase) return [];
+  if (!isSupabaseConfigured || !supabase) return { data: [], error: 'Supabase is not configured' };
   const from = page * limit;
   const to = from + limit - 1;
-  try {
-    const data = await read(supabase.from('hadiths').select('*').range(from, to));
-    return data.map(item => normalizeLibraryItem({ ...item, title: `حديث ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'hadith'));
-  } catch (e) {
-    console.error('fetchHadiths error:', e);
-    return [];
-  }
+  const res = await read(supabase.from('hadiths').select('*').range(from, to));
+  if (res.error) return { data: [], error: res.error };
+  return { 
+    data: res.data.map(item => normalizeLibraryItem({ ...item, title: `حديث ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'hadith')),
+    error: null
+  };
 };
 
 export const fetchWisdoms = async (page = 0, limit = 20) => {
-  if (!isSupabaseConfigured || !supabase) return [];
+  if (!isSupabaseConfigured || !supabase) return { data: [], error: 'Supabase is not configured' };
   const from = page * limit;
   const to = from + limit - 1;
-  try {
-    const data = await read(supabase.from('wisdoms').select('*').range(from, to));
-    return data.map(item => normalizeLibraryItem({ ...item, title: `حكمة ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'wisdom'));
-  } catch (e) {
-    console.error('fetchWisdoms error:', e);
-    return [];
-  }
+  const res = await read(supabase.from('wisdoms').select('*').range(from, to));
+  if (res.error) return { data: [], error: res.error };
+  return { 
+    data: res.data.map(item => normalizeLibraryItem({ ...item, title: `حكمة ${item.author ? 'عن ' + item.author : '#' + item.id}` }, 'wisdom')),
+    error: null
+  };
 };
 
 export const ensureUserRecord = async (user) => {
